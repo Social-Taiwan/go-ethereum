@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
@@ -293,6 +294,31 @@ func TestEthClient(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, tt.test)
 	}
+}
+
+func TestGetBlockBase(t *testing.T) {
+	ctx := context.Background()
+	url := "https://base-mainnet.g.alchemy.com/v2/ZW-g8BnImZZ9_W1yvaM61YaW8US3CRJx"
+	//url := "https://eth-mainnet.g.alchemy.com/v2/YSbA5t1YhfWS1QW3s4ZWOpwoHjBDWrCU"
+	client, err := DialContext(ctx, url)
+	if err != nil {
+		t.Fatalf("failed to connect %s: %s", url, err.Error())
+	}
+
+	// Get current block number
+	// blockNumber, err := client.BlockNumber(ctx)
+	// if err != nil {
+	// 	t.Fatalf("unexpected error: %v", err)
+	// }
+
+	block, err := client.BlockByNumberBase(context.Background(), new(big.Int).SetUint64(5327532))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, tx := range block.Transactions() {
+		fmt.Println("tx:", tx.Hash())
+	}
+
 }
 
 func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {

@@ -206,6 +206,22 @@ type Block struct {
 	ReceivedFrom interface{}
 }
 
+type BlockBase struct {
+	header       *Header
+	uncles       []*Header
+	transactions TransactionsBase
+	withdrawals  Withdrawals
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+
+	// These fields are used by package eth to track
+	// inter-peer block relay.
+	ReceivedAt   time.Time
+	ReceivedFrom interface{}
+}
+
 // "external" block encoding. used for eth protocol, etc.
 type extblock struct {
 	Header      *Header
@@ -342,6 +358,10 @@ func (b *Block) Uncles() []*Header          { return b.uncles }
 func (b *Block) Transactions() Transactions { return b.transactions }
 func (b *Block) Withdrawals() Withdrawals   { return b.withdrawals }
 
+func (b *BlockBase) Uncles() []*Header              { return b.uncles }
+func (b *BlockBase) Transactions() TransactionsBase { return b.transactions }
+func (b *BlockBase) Withdrawals() Withdrawals       { return b.withdrawals }
+
 func (b *Block) Transaction(hash common.Hash) *Transaction {
 	for _, transaction := range b.transactions {
 		if transaction.Hash() == hash {
@@ -442,6 +462,10 @@ func NewBlockWithHeader(header *Header) *Block {
 	return &Block{header: CopyHeader(header)}
 }
 
+func NewBlockWithHeaderBase(header *Header) *BlockBase {
+	return &BlockBase{header: CopyHeader(header)}
+}
+
 // WithSeal returns a new block with the data from b but the header replaced with
 // the sealed one.
 func (b *Block) WithSeal(header *Header) *Block {
@@ -468,9 +492,38 @@ func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 	return block
 }
 
+// WithBody returns a copy of the block with the given transaction and uncle contents.
+func (b *BlockBase) WithBody(transactions []*TransactionBase, uncles []*Header) *BlockBase {
+	block := &BlockBase{
+		header:       b.header,
+		transactions: make([]*TransactionBase, len(transactions)),
+		uncles:       make([]*Header, len(uncles)),
+		withdrawals:  b.withdrawals,
+	}
+	copy(block.transactions, transactions)
+	for i := range uncles {
+		block.uncles[i] = CopyHeader(uncles[i])
+	}
+	return block
+}
+
 // WithWithdrawals returns a copy of the block containing the given withdrawals.
 func (b *Block) WithWithdrawals(withdrawals []*Withdrawal) *Block {
 	block := &Block{
+		header:       b.header,
+		transactions: b.transactions,
+		uncles:       b.uncles,
+	}
+	if withdrawals != nil {
+		block.withdrawals = make([]*Withdrawal, len(withdrawals))
+		copy(block.withdrawals, withdrawals)
+	}
+	return block
+}
+
+// WithWithdrawals returns a copy of the block containing the given withdrawals.
+func (b *BlockBase) WithWithdrawals(withdrawals []*Withdrawal) *BlockBase {
+	block := &BlockBase{
 		header:       b.header,
 		transactions: b.transactions,
 		uncles:       b.uncles,
